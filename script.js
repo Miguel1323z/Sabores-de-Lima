@@ -138,12 +138,12 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
 
   const zonas = [
-    { nombre: 'Miraflores', img: 'img/zonas/miraflores.jpg', desc: 'Malecón con vista al mar, cebicherías clásicas y restaurantes.' },
-    { nombre: 'Barranco', img: 'img/zonas/barranco.png', desc: 'Bohemio y colorido, con picanterías modernas y bares de pisco.' },
-    { nombre: 'Centro de Lima', img: 'img/zonas/centro-de-lima.jpg', desc: 'Cuna de las picanterías criollas centenarias y los mercados tradicionales.' },
-    { nombre: 'Surquillo', img: 'img/zonas/surquillo.jpg', desc: 'El mercado más auténtico de la ciudad; puestos de comida al paso irresistibles.' },
-    { nombre: 'La Victoria', img: 'img/zonas/la-victoria.jpg', desc: 'Hogar de los anticuchos nocturnos y la cultura chicharronera.' },
-    { nombre: 'San Isidro', img: 'img/zonas/san-isidro.jpg', desc: 'Restaurantes elegantes rodeados de olivares centenarios.' }
+    { nombre: 'Miraflores', img: 'img/zonas/miraflores.jpg', desc: 'Malecón con vista al mar, cevicherías clásicas y restaurantes innovadores.' },
+    { nombre: 'Barranco', img: 'img/zonas/barranco.png', desc: 'Artistico y colorido, con picanterías modernas y bares de pisco.' },
+    { nombre: 'Centro de Lima', img: 'img/zonas/centro-de-lima.jpg', desc: 'Cuna de las picanterías criollas y los mercados tradicionales.' },
+    { nombre: 'Surquillo', img: 'img/zonas/surquillo.jpg', desc: 'Lugar de los mejores huariques marinos.' },
+    { nombre: 'La Victoria', img: 'img/zonas/la-victoria.jpg', desc: 'Hogar de los anticuchos nocturnos y la sazon chicharronera del barrio.' },
+    { nombre: 'San Isidro', img: 'img/zonas/san-isidro.jpg', desc: 'Restaurantes elegantes rodeados del bosque de olivares centenarios.' }
   ];
 
   /* -----------------------------------------------------------------------
@@ -152,7 +152,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const gradient = (colores) => `linear-gradient(135deg, ${colores[0]}, ${colores[1]})`;
 
-  /** Función para construir los íconos de picante de forma estricta */
   function spiceIcons(nivel){
     if (nivel === undefined || nivel === null) return '';
     if (nivel === 0) return '<span style="color:var(--tinta-suave); font-size:.8rem;">Sin picante</span>';
@@ -168,7 +167,6 @@ document.addEventListener('DOMContentLoaded', () => {
     return html;
   }
 
-  /** CARDS */
   function createDishCard(item, categoria){
     const card = document.createElement('article');
     card.className = 'dish-card reveal';
@@ -203,7 +201,6 @@ document.addEventListener('DOMContentLoaded', () => {
   renderGrid('postresGrid', postres, 'Postre tradicional');
   renderGrid('bebidasGrid', bebidas, 'Bebida');
 
-  /** Zonas del mapa gastronómico */
   const zonesGrid = document.getElementById('zonesGrid');
   if (zonesGrid) {
     zonas.forEach(z => {
@@ -223,6 +220,87 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   /* -----------------------------------------------------------------------
+     LIGHTBOX (AMPLIACIÓN DE IMAGEN A PANTALLA COMPLETA)
+     ----------------------------------------------------------------------- */
+
+  let lightboxOverlay = document.getElementById('lightboxOverlay');
+  if (!lightboxOverlay) {
+    lightboxOverlay = document.createElement('div');
+    lightboxOverlay.id = 'lightboxOverlay';
+    lightboxOverlay.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background-color: rgba(0, 0, 0, 0.88);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 99999;
+      cursor: zoom-out;
+      opacity: 0;
+      transition: opacity 0.25s ease;
+    `;
+
+    lightboxOverlay.innerHTML = `
+      <span id="lightboxClose" style="
+        position: absolute;
+        top: 20px;
+        right: 30px;
+        color: #fff;
+        font-size: 36px;
+        font-weight: bold;
+        cursor: pointer;
+        user-select: none;
+        z-index: 100000;
+      ">&times;</span>
+      <img id="lightboxImg" style="
+        max-width: 85%;
+        max-height: 80vh;
+        border-radius: 12px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.8);
+        object-fit: contain;
+        cursor: default;
+      " src="" alt="Imagen ampliada">
+    `;
+
+    document.body.appendChild(lightboxOverlay);
+
+    const closeLightbox = () => {
+      lightboxOverlay.style.opacity = '0';
+      setTimeout(() => {
+        lightboxOverlay.style.display = 'none';
+      }, 250);
+    };
+
+    lightboxOverlay.addEventListener('click', (e) => {
+      if (e.target !== document.getElementById('lightboxImg')) {
+        closeLightbox();
+      }
+    });
+
+    document.getElementById('lightboxClose').addEventListener('click', closeLightbox);
+    
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && lightboxOverlay.style.display === 'flex') {
+        e.stopPropagation();
+        closeLightbox();
+      }
+    }, true);
+  }
+
+  function openLightbox(imgSrc, altText) {
+    const lightboxImg = document.getElementById('lightboxImg');
+    lightboxImg.src = imgSrc;
+    lightboxImg.alt = altText || 'Imagen ampliada';
+    lightboxOverlay.style.display = 'flex';
+    setTimeout(() => {
+      lightboxOverlay.style.opacity = '1';
+    }, 10);
+  }
+
+  /* -----------------------------------------------------------------------
      DETALLE DE PLATO (MODAL)
      ----------------------------------------------------------------------- */
 
@@ -237,12 +315,47 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!modalOverlay) return;
 
     modalIcon.style.background = gradient(item.colores);
-    modalIcon.innerHTML = `<img src="${item.img}" alt="${item.nombre}" class="modal-dish-img">`;
+    modalIcon.innerHTML = `<img src="${item.img}" alt="${item.nombre}" class="modal-dish-img" style="cursor: pointer;">`;
+
+    const circleImg = modalIcon.querySelector('.modal-dish-img');
+    if (circleImg) {
+      circleImg.addEventListener('click', () => openLightbox(item.img, item.nombre));
+    }
+
+    // 2. CREAR/GESTIONAR EL BOTÓN DEBAJO DEL CÍRCULO (CENTRADO)
+    let zoomBtn = document.getElementById('modalZoomBtn');
+    if (!zoomBtn) {
+      zoomBtn = document.createElement('button');
+      zoomBtn.id = 'modalZoomBtn';
+      zoomBtn.type = 'button';
+      zoomBtn.style.cssText = `
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin: 10px auto 0 auto;
+        padding: 5px 12px;
+        font-size: 0.78rem;
+        color: var(--tinta-suave, #666);
+        background: transparent;
+        border: 1px solid rgba(0, 0, 0, 0.15);
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+      `;
+      zoomBtn.innerHTML = `<i class="fa-solid fa-magnifying-glass-plus"></i> Ver imagen completa`;
+      
+      // Se inserta dinámicamente justo después de la foto circular
+      modalIcon.parentNode.insertBefore(zoomBtn, modalIcon.nextSibling);
+    }
+
+    // Reasignar acción al botón centrado
+    zoomBtn.onclick = () => openLightbox(item.img, item.nombre);
+
     modalCategory.textContent = categoria;
     modalTitle.textContent = item.nombre;
     modalDesc.textContent = item.desc;
 
-    // 1. OCULTAR Y LIMPIAR INGREDIENTES Y PRECIO
+    // 3. OCULTAR Y LIMPIAR INGREDIENTES Y PRECIO
     const idsParaOcultar = ['modalIngredients', 'modalPrice', 'ingredientsGroup', 'priceGroup', 'modalIngredientsGroup', 'modalPriceGroup'];
     idsParaOcultar.forEach(id => {
       const el = document.getElementById(id);
@@ -252,12 +365,10 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // Buscar si existen elementos que contengan texto de "Ingredientes" o "Precio" en el modal y ocultarlos
     const allParagraphs = modalOverlay.querySelectorAll('p, span, div, h4, h5');
     allParagraphs.forEach(el => {
       const txt = el.textContent.toLowerCase().trim();
       if ((txt.includes('ingrediente') || txt.includes('precio')) && !el.contains(modalDesc)) {
-        // Si el elemento o su contenedor es de ingrediente/precio, lo ocultamos
         if (el.children.length === 0 || el.classList.contains('modal-label')) {
           el.style.display = 'none';
           if (el.parentElement && el.parentElement !== modalOverlay && !el.parentElement.contains(modalDesc)) {
@@ -267,14 +378,13 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-    // 2. GESTIÓN DEL PICANTE EN EL MODAL
+    // 4. GESTIÓN DEL PICANTE EN EL MODAL
     let spiceContainer = document.getElementById('modalSpice');
     
     if (spiceContainer) {
       const parent = spiceContainer.parentElement;
 
       if (item.picante !== undefined) {
-        // Asignar los ajíes exactos
         spiceContainer.innerHTML = spiceIcons(item.picante);
         spiceContainer.style.display = 'block';
 
@@ -282,7 +392,6 @@ document.addEventListener('DOMContentLoaded', () => {
           parent.style.display = 'block';
         }
       } else {
-        // En Bebidas y Postres se limpia y oculta por completo
         spiceContainer.innerHTML = '';
         spiceContainer.style.display = 'none';
 
@@ -308,7 +417,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
   document.addEventListener('keydown', (e) => {
-    if(e.key === 'Escape') closeModal();
+    if(e.key === 'Escape' && lightboxOverlay.style.display !== 'flex') closeModal();
   });
 
   /* -----------------------------------------------------------------------
