@@ -152,14 +152,18 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const gradient = (colores) => `linear-gradient(135deg, ${colores[0]}, ${colores[1]})`;
 
-  /** Renderizado de picante */
+  /** Función para construir los íconos de picante de forma estricta */
   function spiceIcons(nivel){
-    if (nivel === undefined) return '';
+    if (nivel === undefined || nivel === null) return '';
     if (nivel === 0) return '<span style="color:var(--tinta-suave); font-size:.8rem;">Sin picante</span>';
     
     let html = '';
     for(let i = 1; i <= 3; i++){
-      html += `<i class="fa-solid fa-pepper-hot ${i <= nivel ? 'active' : ''}"></i>`;
+      if (i <= nivel) {
+        html += `<i class="fa-solid fa-pepper-hot active" style="color: #e63946; margin-right: 4px;"></i>`;
+      } else {
+        html += `<i class="fa-solid fa-pepper-hot" style="color: #ccc; margin-right: 4px;"></i>`;
+      }
     }
     return html;
   }
@@ -169,7 +173,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const card = document.createElement('article');
     card.className = 'dish-card reveal';
 
-    // Footer solo se crea si el item tiene picante (Platos)
     const footerHtml = (item.picante !== undefined) ? `
       <div class="dish-footer">
         <div class="spice-level" aria-label="Nivel de picante">${spiceIcons(item.picante)}</div>
@@ -192,6 +195,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function renderGrid(containerId, data, categoria){
     const container = document.getElementById(containerId);
+    if (!container) return;
     data.forEach(item => container.appendChild(createDishCard(item, categoria)));
   }
 
@@ -201,20 +205,22 @@ document.addEventListener('DOMContentLoaded', () => {
 
   /** Zonas del mapa gastronómico */
   const zonesGrid = document.getElementById('zonesGrid');
-  zonas.forEach(z => {
-    const card = document.createElement('div');
-    card.className = 'zone-card reveal';
-    card.innerHTML = `
-      <div class="zone-card-img">
-        <img src="${z.img}" alt="${z.nombre}" class="zone-img">
-      </div>
-      <div class="zone-card-body">
-        <h3>${z.nombre}</h3>
-        <p>${z.desc}</p>
-      </div>
-    `;
-    zonesGrid.appendChild(card);
-  });
+  if (zonesGrid) {
+    zonas.forEach(z => {
+      const card = document.createElement('div');
+      card.className = 'zone-card reveal';
+      card.innerHTML = `
+        <div class="zone-card-img">
+          <img src="${z.img}" alt="${z.nombre}" class="zone-img">
+        </div>
+        <div class="zone-card-body">
+          <h3>${z.nombre}</h3>
+          <p>${z.desc}</p>
+        </div>
+      `;
+      zonesGrid.appendChild(card);
+    });
+  }
 
   /* -----------------------------------------------------------------------
      DETALLE DE PLATO (MODAL)
@@ -225,50 +231,64 @@ document.addEventListener('DOMContentLoaded', () => {
   const modalCategory = document.getElementById('modalCategory');
   const modalTitle = document.getElementById('modalTitle');
   const modalDesc = document.getElementById('modalDesc');
-  const modalIngredients = document.getElementById('modalIngredients');
-  const modalSpice = document.getElementById('modalSpice');
-  const modalPrice = document.getElementById('modalPrice');
   const modalClose = document.getElementById('modalClose');
 
-  // Oculta/muestra un elemento junto con su subtítulo/contenedor padre
-  function toggleFieldVisibility(el, show) {
-    if (!el) return;
-    el.style.display = show ? 'block' : 'none';
-    
-    // Si está dentro de un contenedor o grupo con subtítulo, oculta el grupo entero
-    const parent = el.parentElement;
-    if (parent && parent.id !== 'modalOverlay' && parent.tagName !== 'BODY') {
-      parent.style.display = show ? 'block' : 'none';
-    }
-  }
-
   function openModal(item, categoria){
+    if (!modalOverlay) return;
+
     modalIcon.style.background = gradient(item.colores);
     modalIcon.innerHTML = `<img src="${item.img}" alt="${item.nombre}" class="modal-dish-img">`;
     modalCategory.textContent = categoria;
     modalTitle.textContent = item.nombre;
     modalDesc.textContent = item.desc;
+
+    // 1. OCULTAR Y LIMPIAR INGREDIENTES Y PRECIO
+    const idsParaOcultar = ['modalIngredients', 'modalPrice', 'ingredientsGroup', 'priceGroup', 'modalIngredientsGroup', 'modalPriceGroup'];
+    idsParaOcultar.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) {
+        el.style.display = 'none';
+        if (el.tagName !== 'DIV') el.textContent = '';
+      }
+    });
+
+    // Buscar si existen elementos que contengan texto de "Ingredientes" o "Precio" en el modal y ocultarlos
+    const allParagraphs = modalOverlay.querySelectorAll('p, span, div, h4, h5');
+    allParagraphs.forEach(el => {
+      const txt = el.textContent.toLowerCase().trim();
+      if ((txt.includes('ingrediente') || txt.includes('precio')) && !el.contains(modalDesc)) {
+        // Si el elemento o su contenedor es de ingrediente/precio, lo ocultamos
+        if (el.children.length === 0 || el.classList.contains('modal-label')) {
+          el.style.display = 'none';
+          if (el.parentElement && el.parentElement !== modalOverlay && !el.parentElement.contains(modalDesc)) {
+            el.parentElement.style.display = 'none';
+          }
+        }
+      }
+    });
+
+    // 2. GESTIÓN DEL PICANTE EN EL MODAL
+    let spiceContainer = document.getElementById('modalSpice');
     
-    // 1. Ingredientes: OCULTO SIEMPRE
-    if (modalIngredients) {
-      modalIngredients.textContent = '';
-      toggleFieldVisibility(modalIngredients, false);
-    }
+    if (spiceContainer) {
+      const parent = spiceContainer.parentElement;
 
-    // 2. Precio: OCULTO SIEMPRE
-    if (modalPrice) {
-      modalPrice.textContent = '';
-      toggleFieldVisibility(modalPrice, false);
-    }
-
-    // 3. Picante: SOLO SE MUESTRA SI ES PLATO (si tiene picante definido)
-    if (modalSpice) {
       if (item.picante !== undefined) {
-        modalSpice.innerHTML = spiceIcons(item.picante);
-        toggleFieldVisibility(modalSpice, true);
+        // Asignar los ajíes exactos
+        spiceContainer.innerHTML = spiceIcons(item.picante);
+        spiceContainer.style.display = 'block';
+
+        if (parent && parent !== modalOverlay && parent.tagName !== 'BODY') {
+          parent.style.display = 'block';
+        }
       } else {
-        modalSpice.innerHTML = '';
-        toggleFieldVisibility(modalSpice, false);
+        // En Bebidas y Postres se limpia y oculta por completo
+        spiceContainer.innerHTML = '';
+        spiceContainer.style.display = 'none';
+
+        if (parent && parent !== modalOverlay && parent.tagName !== 'BODY') {
+          parent.style.display = 'none';
+        }
       }
     }
 
@@ -277,14 +297,16 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function closeModal(){
-    modalOverlay.classList.remove('open');
+    if (modalOverlay) modalOverlay.classList.remove('open');
     document.body.style.overflow = '';
   }
 
-  modalClose.addEventListener('click', closeModal);
-  modalOverlay.addEventListener('click', (e) => {
-    if(e.target === modalOverlay) closeModal();
-  });
+  if (modalClose) modalClose.addEventListener('click', closeModal);
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', (e) => {
+      if(e.target === modalOverlay) closeModal();
+    });
+  }
   document.addEventListener('keydown', (e) => {
     if(e.key === 'Escape') closeModal();
   });
@@ -298,29 +320,32 @@ document.addEventListener('DOMContentLoaded', () => {
   const navMenu = document.getElementById('navMenu');
   const navLinks = document.querySelectorAll('.nav-link');
 
-  navToggle.addEventListener('click', () => {
-    navMenu.classList.toggle('open');
-    navToggle.classList.toggle('open');
-  });
-
-  navLinks.forEach(link => {
-    link.addEventListener('click', () => {
-      navMenu.classList.remove('open');
-      navToggle.classList.remove('open');
+  if (navToggle && navMenu) {
+    navToggle.addEventListener('click', () => {
+      navMenu.classList.toggle('open');
+      navToggle.classList.toggle('open');
     });
-  });
+
+    navLinks.forEach(link => {
+      link.addEventListener('click', () => {
+        navMenu.classList.remove('open');
+        navToggle.classList.remove('open');
+      });
+    });
+  }
 
   const backToTop = document.getElementById('backToTop');
 
   window.addEventListener('scroll', () => {
-    const scrolled = window.scrollY > 60;
-    navbar.classList.toggle('scrolled', scrolled);
-    backToTop.classList.toggle('show', window.scrollY > 500);
+    if (navbar) navbar.classList.toggle('scrolled', window.scrollY > 60);
+    if (backToTop) backToTop.classList.toggle('show', window.scrollY > 500);
   });
 
-  backToTop.addEventListener('click', () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  });
+  if (backToTop) {
+    backToTop.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
 
   const sections = document.querySelectorAll('section[id]');
   const spyObserver = new IntersectionObserver((entries) => {
